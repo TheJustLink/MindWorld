@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "com.devlinkgames.linkengine": {
-      "version": "file:C:/Users/Link/Documents/Projects/VS22/LinkEngineUnity",
+      "version": "file:C:/Users/Link/Documents/Projects/VS22/LinkEngine/LinkEngine.Unity/Package",
       "depth": 0,
       "source": "local",
       "dependencies": {
