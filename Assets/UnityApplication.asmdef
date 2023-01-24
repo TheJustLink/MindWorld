@@ -10,7 +10,8 @@
     "allowUnsafeCode": false,
     "overrideReferences": true,
     "precompiledReferences": [
-        "LinkEngine.dll"
+        "LinkEngine.dll",
+        "Test.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [],
