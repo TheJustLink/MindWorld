@@ -7,33 +7,29 @@ using LinkEngine.Components;
 using LinkEngine.Engines;
 using LinkEngine.GameObjects;
 using LinkEngine.Graphics;
-using LinkEngine.IO;
 using LinkEngine.Math;
-using LinkEngine.Ticks;
 using LinkEngine.Time;
 
-using Vector2 = System.Numerics.Vector2;
-
-namespace MindWorld
+namespace MindWorld.Core
 {
-    class Ship : ITickable
+    class AIShip : IShip
     {
-        private const float Speed = 4f;
+        public ITransform2D Transform { get; private set; }
+
+        private const float Speed = 10f;
         private const float RotationSpeedInDegrees = 270f;
-
-        private readonly IInput<Vector2> _input;
+        
         private readonly IEngine _engine;
-
-        private ITransform2D _transform;
+        private readonly IShip _target;
 
         private bool _initialized;
         private Vector2 _inputDirection;
         private ISpriteRenderer _spriteRenderer;
 
-        public Ship(IInput<Vector2> input, IEngine engine)
+        public AIShip(IEngine engine, IShip target)
         {
-            _input = input;
             _engine = engine;
+            _target = target;
         }
 
         public async Task InitializeAsync()
@@ -55,11 +51,11 @@ namespace MindWorld
 
             sw.Stop();
             
-            _transform = await gameObject.Components.AddAsync<ITransform2D>().ConfigureAwait(false);
-            
+            Transform = await gameObject.Components.AddAsync<ITransform2D>().ConfigureAwait(false);
+            Transform.Position = new Vector2(2f, 2f);
+
             _spriteRenderer = await gameObject.Components.AddAsync<ISpriteRenderer>().ConfigureAwait(false);
             _spriteRenderer.Sprite = sprite;
-            //_spriteRenderer.Color = Color.Black;
 
             _initialized = true;
         }
@@ -78,35 +74,24 @@ namespace MindWorld
         public void Tick(ElapsedTime time)
         {
             if (_initialized == false) return;
+            if (_target == null) return;
+            
+            _targetPosition = _target.Transform.Position;
 
-            var rawInput = _input.Read();
-            var targetInputDirection = rawInput == Vector2.Zero
-                ? Vector2.Zero
-                : Vector2.Normalize(rawInput);
+            var direction = Transform.Position.GetDirectionTo(_targetPosition);
 
-            _inputDirection = Vector2.Lerp(_inputDirection, targetInputDirection, time.DeltaSeconds * 10f);
+            _targetPosition -= direction * Vector2.Half;
 
-            if (_engine.Mouse.RightButton.IsDown)
-            {
-                _targetPosition = _engine.Mouse.PositionInWorld;
-                
-                var vector = _targetPosition - _transform.Position;
-                var direction = Vector2.Normalize(vector);
+            _targetRotation = MathF.Atan2(direction.Y, direction.X) - MathFunctions.Deg90InRad;
 
-                _targetRotation = MathF.Atan2(direction.Y, direction.X) - MathFunctions.Deg90InRad;
-            }
+            Transform.Position = Vector2.Lerp(Transform.Position, _targetPosition, Speed * time.DeltaSeconds);
+            Transform.RotationInRadians = Interpolations.LinearAngleInRadians(Transform.RotationInRadians, _targetRotation, MathFunctions.DegToRad * RotationSpeedInDegrees * Speed * time.DeltaSeconds);
 
-            var x = Interpolations.Linear(_transform.Position.X, _targetPosition.X, Speed * time.DeltaSeconds);
-            var y = Interpolations.Linear(_transform.Position.Y, _targetPosition.Y, Speed * time.DeltaSeconds);
-            _transform.Position = new Vector2(x, y);
-
-            _transform.RotationInRadians = Interpolations.LinearAngleInRadians(_transform.RotationInRadians, _targetRotation, MathFunctions.DegToRad * RotationSpeedInDegrees * Speed * time.DeltaSeconds);
-
-            var changeScaleX = Math.Clamp(MathF.Abs(_inputDirection.X * 0.2f), 0f, 1f);
-            var changeScaleY = Math.Clamp(MathF.Abs(_inputDirection.Y * 0.2f), 0f, 1f);
+            var changeScaleX = Math.Clamp(MathF.Abs(direction.X * 0.2f), 0f, 1f);
+            var changeScaleY = Math.Clamp(MathF.Abs(direction.Y * 0.2f), 0f, 1f);
             var targetScale = new Vector2(1 + changeScaleX, 1 + changeScaleY);
             
-            _transform.LocalScale = Vector2.Lerp(_transform.LocalScale, targetScale, 10f * time.DeltaSeconds);
+            Transform.LocalScale = Vector2.Lerp(Transform.LocalScale, targetScale, 10f * time.DeltaSeconds);
 
             _spriteRenderer.Color = Color.Lerp(Color.Black, Color.White, (1 - MathF.Sin(time.TotalSeconds)) / 2f);
         }
